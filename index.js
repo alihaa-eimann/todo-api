@@ -2,7 +2,7 @@ const express = require('express');
 const app = express();
 const swaggerUi = require('swagger-ui-express');
 const openapiSpec = require('./openapi.json');
-
+const db = require('./db');
 app.use('/docs', swaggerUi.serve, swaggerUi.setup(openapiSpec));
 const PORT = 3000;
 app.use(express.json());
@@ -19,16 +19,12 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok' });
 });
 app.get('/tasks', (req, res) => {
+  const tasks = db.prepare('SELECT * FROM tasks').all();
   res.json(tasks);
 });
 app.get('/tasks/:id', (req, res) => {
-  const id = parseInt(req.params.id);
-  const task = tasks.find(t => t.id === id);
-
-  if (!task) {
-    return res.status(404).json({ error: `Task ${id} not found` });
-  }
-
+  const task = db.prepare('SELECT * FROM tasks WHERE id = ?').get(req.params.id);
+  if (!task) return res.status(404).json({ error: 'Task not found' });
   res.json(task);
 });
 app.post('/tasks', (req, res) => {
