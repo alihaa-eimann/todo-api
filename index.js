@@ -34,13 +34,9 @@ app.post('/tasks', (req, res) => {
     return res.status(400).json({ error: 'Title is required' });
   }
 
-  const newTask = {
-    id: tasks.length > 0 ? Math.max(...tasks.map(t => t.id)) + 1 : 1,
-    title: title,
-    done: false
-  };
+  const result = db.prepare('INSERT INTO tasks (title, done) VALUES (?, ?)').run(title, 0);
+  const newTask = db.prepare('SELECT * FROM tasks WHERE id = ?').get(result.lastInsertRowid);
 
-  tasks.push(newTask);
   res.status(201).json(newTask);
 });
 app.put('/tasks/:id', (req, res) => {
