@@ -1,27 +1,31 @@
-const Database = require('better-sqlite3');
+const { Pool } = require('pg');
+require('dotenv').config();
 
-// This line does two things: if tasks.db doesn't exist, it creates it.
-// If it does exist, it just opens it.
-const db = new Database('tasks.db');
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+});
 
-// CREATE TABLE IF NOT EXISTS = "make this table, unless it's already there"
-// This means you can run your app 100 times and it won't error or duplicate the table.
-db.exec(`
-  CREATE TABLE IF NOT EXISTS tasks (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    title TEXT NOT NULL,
-    done INTEGER DEFAULT 0
-  )
-`);
+// Postgres uses SERIAL instead of AUTOINCREMENT, and BOOLEAN instead of INTEGER for done
+async function init() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS tasks (
+      id SERIAL PRIMARY KEY,
+      title TEXT NOT NULL,
+      done BOOLEAN DEFAULT false
+    )
+  `);
 
-// Before seeding example tasks, check if the table is already full.
-// Without this check, every restart would add 3 more tasks.
-const count = db.prepare('SELECT COUNT(*) AS n FROM tasks').get().n;
-if (count === 0) {
-  const insert = db.prepare('INSERT INTO tasks (title, done) VALUES (?, ?)');
-  insert.run('Buy groceries', 0);
-  insert.run('Walk the dog', 0);
-  insert.run('Finish assignment', 0);
+  const { rows } = await pool.query('SELECT COUNT(*) AS n FROM tasks');
+  if (parseInt(rows[0].n) === 0) {
+    await pool.query(
+      'INSERT INTO tasks (title, done) VALUES ($1, $2), ($3, $4), ($5, $6)',
+      ['Buy groceries', false, 'Walk the dog', false, 'Finish assignment', false]
+    );
+  }
 }
 
-module.exports = db; // so other files (like your routes) can use this same db
+init().catch((err) => {
+  console.error('Failed to initialize database:', err);
+});
+
+module.exports = pool; // routes will use pool.query(...) instead of db.prepare(...)
