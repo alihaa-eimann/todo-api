@@ -30,5 +30,11 @@ router.post('/login', async (req, res) => {
     refresh_token: data.session.refresh_token
   });
 });
+const authGuard = require('../middleware/authGuard');
 
+router.post('/logout', authGuard, async (req, res) => {
+  const { error } = await supabase.auth.signOut();
+  if (error) return res.status(400).json({ error: error.message });
+  res.status(204).send();
+});
 module.exports = router;
