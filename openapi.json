@@ -1,81 +1,110 @@
 {
   "openapi": "3.0.0",
   "info": {
-    "title": "Task API",
+    "title": "FlyRank Auth API",
     "version": "1.0.0",
-    "description": "A simple to-do list CRUD API"
+    "description": "Secure authentication API with Supabase"
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
   },
   "paths": {
-    "/tasks": {
-      "get": {
-        "summary": "List all tasks",
-        "responses": {
-          "200": { "description": "A list of tasks" }
-        }
-      },
+    "/auth/signup": {
       "post": {
-        "summary": "Create a new task",
+        "summary": "Create a new user account",
+        "tags": ["Auth"],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "type": "object",
+                "required": ["email", "password"],
                 "properties": {
-                  "title": { "type": "string" }
+                  "email": { "type": "string" },
+                  "password": { "type": "string" }
                 }
               }
             }
           }
         },
         "responses": {
-          "201": { "description": "Task created" },
-          "400": { "description": "Invalid input" }
+          "201": { "description": "User created" },
+          "400": { "description": "Missing fields or error" }
         }
       }
     },
-    "/tasks/{id}": {
-      "get": {
-        "summary": "Get a single task",
-        "parameters": [
-          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
-        ],
-        "responses": {
-          "200": { "description": "The task" },
-          "404": { "description": "Task not found" }
-        }
-      },
-      "put": {
-        "summary": "Update a task",
-        "parameters": [
-          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
-        ],
+    "/auth/login": {
+      "post": {
+        "summary": "Login and get JWT",
+        "tags": ["Auth"],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "type": "object",
+                "required": ["email", "password"],
                 "properties": {
-                  "title": { "type": "string" },
-                  "done": { "type": "boolean" }
+                  "email": { "type": "string" },
+                  "password": { "type": "string" }
                 }
               }
             }
           }
         },
         "responses": {
-          "200": { "description": "Task updated" },
-          "400": { "description": "Invalid input" },
-          "404": { "description": "Task not found" }
+          "200": { "description": "Returns access_token and refresh_token" },
+          "400": { "description": "Missing fields" },
+          "401": { "description": "Invalid credentials" }
         }
-      },
-      "delete": {
-        "summary": "Delete a task",
-        "parameters": [
-          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
-        ],
+      }
+    },
+    "/auth/logout": {
+      "post": {
+        "summary": "Log out current user",
+        "tags": ["Auth"],
+        "security": [{ "bearerAuth": [] }],
         "responses": {
-          "204": { "description": "Task deleted" },
-          "404": { "description": "Task not found" }
+          "204": { "description": "Logged out successfully" },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/public/info": {
+      "get": {
+        "summary": "Public info - no auth needed",
+        "tags": ["Public"],
+        "responses": {
+          "200": { "description": "Public welcome message" }
+        }
+      }
+    },
+    "/protected/profile": {
+      "get": {
+        "summary": "Get current user profile",
+        "tags": ["Protected"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "User id, email, created_at" },
+          "401": { "description": "Missing or invalid token" }
+        }
+      }
+    },
+    "/protected/dashboard": {
+      "get": {
+        "summary": "User dashboard",
+        "tags": ["Protected"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Dashboard data" },
+          "401": { "description": "Missing or invalid token" }
         }
       }
     }
