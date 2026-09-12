@@ -1,8 +1,16 @@
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { fetchWithCache, fetchWithRetry } from './fetcher.js';
 import { extractCatalogueLinks, extractBookRecord } from './extractor.js';
+import { BookSchema, normalize } from './schema.js';
 
-const START_URL = 'https://books.toscrape.com/catalogue/page-1.html';
-const MAX_PAGES = 3;
+const __dirname  = path.dirname(fileURLToPath(import.meta.url));
+const OUTPUT_DIR = path.join(__dirname, '..', 'output');
+const START_URL  = 'https://books.toscrape.com/catalogue/page-1.html';
+const MAX_PAGES  = 3;
+
+fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 
 // Stage 2: discover
 const bookMap  = new Map();
@@ -21,14 +29,29 @@ while (currentUrl && pageCount < MAX_PAGES) {
 
 console.log(`catalogue_pages=${pageCount}, discovered=${bookMap.size}, unique_urls=${bookMap.size}`);
 
-// Stage 3: extract
-let count = 0;
+// Stages 3 + 4: extract, normalize, validate, store
+const validRecords = [];
+const errorRecords = [];
+const seenUrls     = new Set();
 
 for (const [url, sourcePage] of bookMap) {
   const { html } = await fetchWithRetry(url);
-  const raw = extractBookRecord(html, url, sourcePage);
-  count++;
-  if (count === 1) console.log('\nSample record:\n', JSON.stringify(raw, null, 2));
+  const raw        = extractBookRecord(html, url, sourcePage);
+  const normalized = normalize(raw);
+  const result     = BookSchema.safeParse(normalized);
+
+  if (!result.success) {
+    errorRecords.push({ url, reason: result.error.message });
+    continue;
+  }
+
+  if (!seenUrls.has(url)) {
+    seenUrls.add(url);
+    validRecords.push(result.data);
+  }
 }
 
-console.log(`\ndetail_pages=${count}`);
+fs.writeFileSync(path.join(OUTPUT_DIR, 'books.json'),  JSON.stringify(validRecords,  null, 2));
+fs.writeFileSync(path.join(OUTPUT_DIR, 'errors.json'), JSON.stringify(errorRecords,  null, 2));
+
+console.log(`\nbooks.json: ${validRecords.length} records | errors.json: ${errorRecords.length}`);
